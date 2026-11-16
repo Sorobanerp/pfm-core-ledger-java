@@ -30,10 +30,10 @@ resilience4j:
     instances:
       coreLedger:
         slidingWindowType: COUNT_BASED
-        slidingWindowSize: 20
+        slidingWindowSize: 10
         failureRateThreshold: 50
-        waitDurationInOpenState: 30s
-        permittedNumberOfCallsInHalfOpenState: 5
+        waitDurationInOpenState: 15s
+        permittedNumberOfCallsInHalfOpenState: 3
   retry:
     instances:
       coreLedger:
@@ -45,7 +45,7 @@ resilience4j:
   timelimiter:
     instances:
       coreLedger:
-        timeoutDuration: 2s
+        timeoutDuration: 3s
         cancelRunningFuture: true
   bulkhead:
     instances:
