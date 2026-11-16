@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: pfm-core-ledger-java
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pfm_core_ledger}
+    username: ${DB_USERNAME:pfm_app_user}
+    password: ${DB_PASSWORD:pfm_app_secret_2026}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 2000
+      auto-commit: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    user: ${FLYWAY_USER:postgres}
+    password: ${FLYWAY_PASSWORD:postgres}
+    baseline-on-migrate: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      coreLedger:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 5
+  retry:
+    instances:
+      coreLedger:
+        maxAttempts: 3
+        waitDuration: 200ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2.0
+        enableRandomizedWait: true
+  timelimiter:
+    instances:
+      coreLedger:
+        timeoutDuration: 2s
+        cancelRunningFuture: true
+  bulkhead:
+    instances:
+      coreLedger:
+        maxConcurrentCalls: 64
+        maxWaitDuration: 100ms
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
