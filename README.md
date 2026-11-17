@@ -3,7 +3,20 @@
 > **Core Banking Ledger Service — Java 25 LTS, Spring Boot (Virtual Threads), Hexagonal Architecture & PostgreSQL 16 RLS**
 
 - **Stack Homologada (ADR-001 / ADR-006)**: Java 25 LTS (`ScopedValue`, Virtual Threads), Spring Boot 3.5, Spring Data JDBC/JPA, Flyway, Resilience4j, OpenTelemetry e Testcontainers (PostgreSQL 16).
-- **Banco de Dados (`pfm-shared-infra`)**: `pfm_core_ledger` (porta `5432`) com **Row-Level Security (RLS)** forçado em 100% das tabelas multitenant sob a role restrita `pfm_app_user` (`NOBYPASSRLS`) e precisão monetária `NUMERIC(19,4)` (RN06).
+- **Banco de Dados (`pfm-shared-infra`)**: `pfm_core_ledger` (porta host `15432` / container `5432`) com **Row-Level Security (RLS)** forçado em 100% das tabelas multitenant sob a role restrita `pfm_app_user` (`NOBYPASSRLS`) e precisão monetária `NUMERIC(19,4)` (RN06).
+
+---
+
+## 0. Portas & Configuração 12-Factor App
+
+Em conformidade com a topologia canônica local (evitando colisão com Portainer na porta `8000`):
+
+| Interface | Porta Host Local | Porta Container / K8s | Variável de Ambiente | Endpoint / Probe |
+|---|:---:|:---:|---|---|
+| **HTTP / Actuator** | `18200` | `8080` | `SERVER_PORT` | `http://localhost:18200/actuator/health` |
+| **gRPC Ledger Engine** | `18210` | `9090` | `GRPC_SERVER_PORT` | `localhost:18210` |
+| **PostgreSQL RLS** | `15432` | `5432` | `DB_URL` | `jdbc:postgresql://localhost:15432/pfm_core_ledger` |
+| **Kafka Backbone** | `19092` | `9092` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:19092` |
 
 ---
 
