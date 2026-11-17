@@ -13,7 +13,13 @@ spring:
       maximum-pool-size: 20
       minimum-idle: 5
       connection-timeout: 2000
+      keepalive-time: 30000
+      max-lifetime: 600000
       auto-commit: false
+      data-source-properties:
+        prepareThreshold: 3
+        preparedStatementCacheQueries: 256
+        preparedStatementCacheSizeMiB: 5
   flyway:
     enabled: true
     locations: classpath:db/migration

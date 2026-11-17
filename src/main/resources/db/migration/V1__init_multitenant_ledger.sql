@@ -209,6 +209,8 @@ CREATE INDEX IF NOT EXISTS idx_financial_accounts_tenant ON financial_accounts(t
 CREATE INDEX IF NOT EXISTS idx_credit_cards_tenant ON credit_cards(tenant_id, financial_account_id);
 CREATE INDEX IF NOT EXISTS idx_financial_contracts_tenant ON financial_contracts(tenant_id, modality);
 CREATE INDEX IF NOT EXISTS idx_ledger_entries_tenant_competence ON ledger_entries(tenant_id, competence_date DESC);
+CREATE INDEX IF NOT EXISTS idx_ledger_entries_reconcile_lookup ON ledger_entries(tenant_id, credit_card_id, amount, competence_date);
+CREATE INDEX IF NOT EXISTS idx_ledger_entries_idempotency_lookup ON ledger_entries(tenant_id, idempotency_key);
 CREATE INDEX IF NOT EXISTS idx_installment_schedules_tenant_month ON installment_schedules(tenant_id, competence_month);
 CREATE INDEX IF NOT EXISTS idx_receipt_items_tenant_ean ON receipt_items(tenant_id, ean, issued_at DESC);
 CREATE INDEX IF NOT EXISTS idx_outbox_events_tenant_status ON outbox_events(tenant_id, status, created_at);
