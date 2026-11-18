@@ -75,6 +75,8 @@ management:
   tracing:
     sampling:
       probability: 1.0
+    propagation:
+      type: W3C
   otlp:
     tracing:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://datadog-agent.monitoring.svc.cluster.local:4318}/v1/traces
