@@ -107,6 +107,7 @@ class MoneyDomainUnitTest {
     }
 
     @Test
+    @SuppressWarnings({"java:S5845", "java:S5785"})
     void shouldVerifyComparableAndObjectContract() {
         Money m1 = Money.brl("50.00");
         Money m2 = Money.brl("100.00");
@@ -118,8 +119,11 @@ class MoneyDomainUnitTest {
 
         assertEquals(m1, m3);
         assertNotEquals(m1, m2);
-        assertNotEquals(m1, "not-money");
-        assertNotEquals(m1, null);
+        Object nonMoney = new Object();
+        boolean equalsNonMoney = m1.equals(nonMoney);
+        boolean equalsNull = m1.equals(null);
+        assertFalse(equalsNonMoney);
+        assertFalse(equalsNull);
         assertEquals(m1.hashCode(), m3.hashCode());
 
         assertEquals("BRL 50.0000", m1.toString());
