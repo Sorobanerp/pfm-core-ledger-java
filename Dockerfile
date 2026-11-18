@@ -1,15 +1,12 @@
 # ============================================================================
-# Stage 1: Build Stage (Java 25 LTS + Maven Wrapper)
+# Stage 1: Build Stage (Java 25 LTS + Maven 3.9)
 # ============================================================================
-FROM eclipse-temurin:25-jdk-noble AS builder
+FROM maven:3.9-eclipse-temurin-25 AS builder
 WORKDIR /workspace
 
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
-
+COPY pom.xml ./
 COPY src/ src/
-RUN ./mvnw clean package -DskipTests -B && \
+RUN mvn clean package -DskipTests -B && \
     java -Djarmode=tools -jar target/pfm-core-ledger-java-*.jar extract --layers --destination extracted
 
 # ============================================================================
