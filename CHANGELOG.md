@@ -7,6 +7,9 @@ Todas as alterações notáveis neste repositório são documentadas neste arqui
 ## [Unreleased]
 
 ### Added
+- Migration Flyway `V3__immutable_audit_log.sql`: tabela `audit_log` append-only protegida por PostgreSQL **FORCE RLS** (`app.current_tenant_id`) e regras `DO INSTEAD NOTHING` para `UPDATE` e `DELETE` (**ADR-010**).
+- Camada hexagonal de auditoria imutável: `AuditLogEntry` (domínio puro), `AuditLogRepositoryPort` (`port/out`) e `PostgresRlsAuditLogAdapter` (`adapter/out/postgres` com Resilience4j `CircuitBreaker` + `Bulkhead`).
+- Gravação automática de trilha de auditoria (`audit_log`) com `trace_id` OpenTelemetry nos casos de uso `US-12` (`TenantAdminApplicationService`) e `US-13` (`UserProfileApplicationService`), validada via Testcontainers (`ImmutableAuditLogIT`).
 - Padronização de governança DevEx (`README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`) e workflow de validação de **Conventional Commits** em Pull Requests para `develop` e `main`.
 
 ---

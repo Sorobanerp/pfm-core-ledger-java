@@ -1,15 +1,19 @@
 package br.com.pfm.ledger.application.service;
 
 import br.com.pfm.ledger.application.port.in.UserProfileUseCase;
+import br.com.pfm.ledger.application.port.out.AuditLogRepositoryPort;
 import br.com.pfm.ledger.application.port.out.EnvelopeEncryptionKmsPort;
 import br.com.pfm.ledger.application.port.out.TenantSubscriptionRepositoryPort;
 import br.com.pfm.ledger.application.port.out.UserProfileRepositoryPort;
+import br.com.pfm.ledger.domain.AuditLogEntry;
 import br.com.pfm.ledger.domain.CategoryBudgetRule;
 import br.com.pfm.ledger.domain.FamilyMemberProfile;
 import br.com.pfm.ledger.domain.FamilyRole;
 import br.com.pfm.ledger.domain.LgpdErasureRecord;
 import br.com.pfm.ledger.domain.Money;
 import br.com.pfm.ledger.domain.TenantSubscription;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -21,7 +25,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Application Service for User Profile, Family RBAC, Category Budgets and LGPD Governance (US-13).
+ * Application Service for User Profile, Family RBAC, Category Budgets and LGPD Governance (US-13)
+ * with immutable audit trail recording (ADR-010).
  */
 @Service
 public class UserProfileApplicationService implements UserProfileUseCase {
@@ -29,15 +34,23 @@ public class UserProfileApplicationService implements UserProfileUseCase {
     private final UserProfileRepositoryPort profileRepository;
     private final TenantSubscriptionRepositoryPort subscriptionRepository;
     private final EnvelopeEncryptionKmsPort kmsPort;
+    private final AuditLogRepositoryPort auditLogRepository;
 
     public UserProfileApplicationService(
             UserProfileRepositoryPort profileRepository,
             TenantSubscriptionRepositoryPort subscriptionRepository,
-            EnvelopeEncryptionKmsPort kmsPort
+            EnvelopeEncryptionKmsPort kmsPort,
+            AuditLogRepositoryPort auditLogRepository
     ) {
         this.profileRepository = Objects.requireNonNull(profileRepository, "profileRepository must not be null");
         this.subscriptionRepository = Objects.requireNonNull(subscriptionRepository, "subscriptionRepository must not be null");
         this.kmsPort = Objects.requireNonNull(kmsPort, "kmsPort must not be null");
+        this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
+    }
+
+    private static String resolveTraceId() {
+        SpanContext ctx = Span.current().getSpanContext();
+        return ctx.isValid() ? ctx.getTraceId() : UUID.randomUUID().toString().replace("-", "");
     }
 
     @Override
@@ -110,7 +123,18 @@ public class UserProfileApplicationService implements UserProfileUseCase {
                 Instant.now()
         );
 
-        return profileRepository.saveMember(newMember);
+        FamilyMemberProfile saved = profileRepository.saveMember(newMember);
+        auditLogRepository.append(AuditLogEntry.of(
+                tenantId,
+                "OWNER",
+                "OWNER",
+                "FAMILY_MEMBER_INVITED",
+                "TENANT_MEMBER",
+                saved.getId().toString(),
+                resolveTraceId(),
+                "{\"role\":\"" + role.name() + "\"}"
+        ));
+        return saved;
     }
 
     @Override
@@ -146,7 +170,18 @@ public class UserProfileApplicationService implements UserProfileUseCase {
                 Instant.now()
         );
 
-        return profileRepository.saveCategoryBudget(budget);
+        CategoryBudgetRule saved = profileRepository.saveCategoryBudget(budget);
+        auditLogRepository.append(AuditLogEntry.of(
+                tenantId,
+                "OWNER",
+                "OWNER",
+                "CATEGORY_BUDGET_SET",
+                "CATEGORY_BUDGET",
+                categoryId,
+                resolveTraceId(),
+                "{\"thresholdPercentage\":" + thresholdPercentage + "}"
+        ));
+        return saved;
     }
 
     @Override
@@ -192,6 +227,17 @@ public class UserProfileApplicationService implements UserProfileUseCase {
 
         // Purge tenant's sensitive data in database
         profileRepository.purgeTenantDataForCryptoShredding(tenantId);
-        return profileRepository.saveLgpdErasureRecord(record);
+        LgpdErasureRecord saved = profileRepository.saveLgpdErasureRecord(record);
+        auditLogRepository.append(AuditLogEntry.of(
+                tenantId,
+                userId.toString(),
+                "OWNER",
+                "LGPD_CRYPTO_SHREDDING_EXECUTED",
+                "KMS_KEY",
+                destroyedKeyId,
+                resolveTraceId(),
+                "{\"status\":\"CRYPTO_SHREDDED\"}"
+        ));
+        return saved;
     }
 }

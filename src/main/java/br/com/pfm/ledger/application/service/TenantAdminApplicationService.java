@@ -1,10 +1,14 @@
 package br.com.pfm.ledger.application.service;
 
 import br.com.pfm.ledger.application.port.in.TenantAdminUseCase;
+import br.com.pfm.ledger.application.port.out.AuditLogRepositoryPort;
 import br.com.pfm.ledger.application.port.out.TenantSubscriptionRepositoryPort;
+import br.com.pfm.ledger.domain.AuditLogEntry;
 import br.com.pfm.ledger.domain.SubscriptionPlan;
 import br.com.pfm.ledger.domain.SubscriptionStatus;
 import br.com.pfm.ledger.domain.TenantSubscription;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -12,15 +16,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Application Service orchestrating SaaS Tenant Administration & Subscription Lifecycle (US-12).
+ * Application Service orchestrating SaaS Tenant Administration & Subscription Lifecycle (US-12)
+ * with immutable audit trail recording (ADR-010).
  */
 @Service
 public class TenantAdminApplicationService implements TenantAdminUseCase {
 
     private final TenantSubscriptionRepositoryPort subscriptionRepository;
+    private final AuditLogRepositoryPort auditLogRepository;
 
-    public TenantAdminApplicationService(TenantSubscriptionRepositoryPort subscriptionRepository) {
+    public TenantAdminApplicationService(
+            TenantSubscriptionRepositoryPort subscriptionRepository,
+            AuditLogRepositoryPort auditLogRepository
+    ) {
         this.subscriptionRepository = Objects.requireNonNull(subscriptionRepository, "subscriptionRepository must not be null");
+        this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
+    }
+
+    private static String resolveTraceId() {
+        SpanContext ctx = Span.current().getSpanContext();
+        return ctx.isValid() ? ctx.getTraceId() : UUID.randomUUID().toString().replace("-", "");
     }
 
     @Override
@@ -41,6 +56,16 @@ public class TenantAdminApplicationService implements TenantAdminUseCase {
         subscription.changePlan(newPlan);
         subscriptionRepository.saveSubscription(subscription);
         subscriptionRepository.updateTenantPlan(tenantId, newPlan);
+        auditLogRepository.append(AuditLogEntry.of(
+                tenantId,
+                "PLATFORM_ADMIN",
+                "PLATFORM_ADMIN",
+                "TENANT_PLAN_CHANGED",
+                "SUBSCRIPTION",
+                tenantId.toString(),
+                resolveTraceId(),
+                "{\"newPlan\":\"" + newPlan.name() + "\"}"
+        ));
 
         return subscriptionRepository.findTenantSummary(tenantId)
                 .orElseThrow(() -> new IllegalStateException("Tenant not found after plan update: " + tenantId));
@@ -58,6 +83,16 @@ public class TenantAdminApplicationService implements TenantAdminUseCase {
         subscription.updateStatus(newStatus);
         subscriptionRepository.saveSubscription(subscription);
         subscriptionRepository.updateSubscriptionStatus(tenantId, newStatus, reason);
+        auditLogRepository.append(AuditLogEntry.of(
+                tenantId,
+                "PLATFORM_ADMIN",
+                "PLATFORM_ADMIN",
+                "SUBSCRIPTION_STATUS_UPDATED",
+                "SUBSCRIPTION",
+                tenantId.toString(),
+                resolveTraceId(),
+                "{\"newStatus\":\"" + newStatus.name() + "\"}"
+        ));
 
         return subscriptionRepository.findTenantSummary(tenantId)
                 .orElseThrow(() -> new IllegalStateException("Tenant not found after status update: " + tenantId));
