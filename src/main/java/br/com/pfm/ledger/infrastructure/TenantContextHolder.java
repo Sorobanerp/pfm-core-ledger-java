@@ -12,8 +12,13 @@ import java.util.concurrent.Callable;
 public final class TenantContextHolder {
 
     public static final ScopedValue<UUID> CURRENT_TENANT = ScopedValue.newInstance();
+    public static final ScopedValue<Boolean> IS_PLATFORM_ADMIN = ScopedValue.newInstance();
 
     private TenantContextHolder() {
+    }
+
+    public static boolean isPlatformAdmin() {
+        return IS_PLATFORM_ADMIN.isBound() && Boolean.TRUE.equals(IS_PLATFORM_ADMIN.get());
     }
 
     public static Optional<UUID> getTenantId() {
@@ -38,5 +43,15 @@ public final class TenantContextHolder {
         Objects.requireNonNull(tenantId, "tenantId must not be null");
         Objects.requireNonNull(callable, "callable must not be null");
         return ScopedValue.where(CURRENT_TENANT, tenantId).call(callable::call);
+    }
+
+    public static void runAsPlatformAdmin(Runnable action) {
+        Objects.requireNonNull(action, "action must not be null");
+        ScopedValue.where(IS_PLATFORM_ADMIN, true).run(action);
+    }
+
+    public static <T> T callAsPlatformAdmin(Callable<T> callable) throws Exception {
+        Objects.requireNonNull(callable, "callable must not be null");
+        return ScopedValue.where(IS_PLATFORM_ADMIN, true).call(callable::call);
     }
 }

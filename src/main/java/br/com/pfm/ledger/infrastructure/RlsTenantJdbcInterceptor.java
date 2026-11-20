@@ -22,6 +22,7 @@ public final class RlsTenantJdbcInterceptor {
 
     public static void applyTenantSessionContext(Connection connection) throws SQLException {
         Optional<UUID> tenantIdOpt = TenantContextHolder.getTenantId();
+        boolean isPlatformAdmin = TenantContextHolder.isPlatformAdmin();
         try (Statement stmt = connection.createStatement()) {
             if (tenantIdOpt.isPresent()) {
                 // UUID validation ensures zero SQL injection vector
@@ -29,6 +30,12 @@ public final class RlsTenantJdbcInterceptor {
                 stmt.execute("SET LOCAL app.current_tenant_id = '" + sanitizedUuid + "'");
             } else {
                 stmt.execute("SET LOCAL app.current_tenant_id = ''");
+            }
+
+            if (isPlatformAdmin) {
+                stmt.execute("SET LOCAL app.is_platform_admin = 'true'");
+            } else {
+                stmt.execute("SET LOCAL app.is_platform_admin = 'false'");
             }
         }
     }
