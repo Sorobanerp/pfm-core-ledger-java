@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 public final class ObservabilityLgpdSanitizer {
 
     public static final String DEFAULT_OTLP_ENDPOINT =
-            "http://datadog-agent.monitoring.svc.cluster.local:4318/v1/traces";
+            "https://otel-collector.pfm.internal:4318/v1/traces";
     public static final String SERVICE_NAME = "pfm-core-ledger-java";
 
     private static final Pattern CPF_PATTERN =
