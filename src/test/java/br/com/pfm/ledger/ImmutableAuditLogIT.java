@@ -122,6 +122,24 @@ class ImmutableAuditLogIT {
                 TENANT_2, () -> auditLogRepository.findByTenantId(TENANT_2)
         );
         assertThat(tenant2Logs).isEmpty();
+
+        // Exercise remaining US-13 operations for full coverage
+        TenantContextHolder.callWithTenant(TENANT_1, () -> {
+            var updated = userProfileUseCase.updateUserProfile(TENANT_1, "owner-1", "Titular Atualizado");
+            assertThat(updated.getFullName()).isEqualTo("Titular Atualizado");
+            var budgets = userProfileUseCase.getCategoryBudgets(TENANT_1);
+            assertThat(budgets).isNotEmpty();
+            var exported = userProfileUseCase.exportUserData(TENANT_1, updated.getId(), "JSON");
+            assertThat(exported.checksumSha256()).isNotBlank();
+            var members = userProfileUseCase.listFamilyMembers(TENANT_1);
+            assertThat(members).isNotEmpty();
+            userProfileUseCase.removeFamilyMember(TENANT_1, members.getFirst().getId());
+            var erasure = userProfileUseCase.requestCryptoShredding(
+                    TENANT_1, updated.getId(), "EXCLUIR_DEFINITIVAMENTE_MINHA_CONTA", "654321"
+            );
+            assertThat(erasure.getDestroyedKeyId()).contains(TENANT_1.toString());
+            return null;
+        });
     }
 
     @Test
