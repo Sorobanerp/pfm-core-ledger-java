@@ -14,7 +14,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:15432/pfm_core_ledger}
     username: ${DB_USERNAME:pfm_app_user}
-    password: ${DB_PASSWORD:pfm_app_secret_2026}
+    password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 20
@@ -32,7 +32,7 @@ spring:
     locations: classpath:db/migration
     url: ${FLYWAY_URL:${DB_URL:jdbc:postgresql://localhost:15432/pfm_core_ledger}}
     user: ${FLYWAY_USER:postgres}
-    password: ${FLYWAY_PASSWORD:postgres}
+    password: ${FLYWAY_PASSWORD:}
     baseline-on-migrate: true
   jpa:
     open-in-view: false
@@ -79,4 +79,4 @@ management:
       type: W3C
   otlp:
     tracing:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://datadog-agent.monitoring.svc.cluster.local:4318}/v1/traces
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:https://otel-collector.pfm.internal:4318}/v1/traces
