@@ -46,7 +46,11 @@ public class PostgresRlsAuditLogAdapter implements AuditLogRepositoryPort {
     }
 
     private void doAppend(AuditLogEntry entry) {
-        jdbcTemplate.execute("SELECT set_config('app.current_tenant_id', '" + entry.tenantId() + "', true)");
+        jdbcTemplate.queryForObject(
+                "SELECT set_config('app.current_tenant_id', ?, true)",
+                String.class,
+                entry.tenantId().toString()
+        );
         jdbcTemplate.update(
                 """
                 INSERT INTO audit_log
@@ -78,7 +82,11 @@ public class PostgresRlsAuditLogAdapter implements AuditLogRepositoryPort {
     }
 
     private List<AuditLogEntry> doFindByTenantId(UUID tenantId) {
-        jdbcTemplate.execute("SELECT set_config('app.current_tenant_id', '" + tenantId + "', true)");
+        jdbcTemplate.queryForObject(
+                "SELECT set_config('app.current_tenant_id', ?, true)",
+                String.class,
+                tenantId.toString()
+        );
         return jdbcTemplate.query(
                 """
                 SELECT id, tenant_id, actor_id, actor_role, action, resource_type, resource_id, trace_id, metadata::text, created_at
