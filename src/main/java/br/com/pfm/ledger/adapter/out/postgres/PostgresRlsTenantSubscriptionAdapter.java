@@ -165,6 +165,51 @@ public class PostgresRlsTenantSubscriptionAdapter implements TenantSubscriptionR
     }
 
     @Override
+    public void bootstrapTenant(UUID tenantId, String tenantName, String ownerEmail, SubscriptionPlan plan) {
+        String safeUuid = UUID.fromString(tenantId.toString()).toString();
+        jdbcTemplate.execute("SET LOCAL app.current_tenant_id = '" + safeUuid + "'");
+        jdbcTemplate.execute("SET LOCAL app.is_platform_admin = 'true'");
+
+        final String upsertTenantSql = """
+                INSERT INTO tenants (id, tenant_id, name, base_currency, monthly_net_income, status, plan, created_at, updated_at)
+                VALUES (?, ?, ?, 'BRL', 18200.0000, 'ACTIVE', ?, NOW(), NOW())
+                ON CONFLICT (tenant_id) DO UPDATE SET
+                    name = EXCLUDED.name,
+                    plan = EXCLUDED.plan,
+                    status = 'ACTIVE',
+                    updated_at = NOW()
+                """;
+        jdbcTemplate.update(upsertTenantSql, tenantId, tenantId, tenantName, plan.name());
+
+        if (ownerEmail != null && !ownerEmail.isBlank()) {
+            String ownerUserId;
+            if ("11111111-1111-1111-1111-111111111111".equalsIgnoreCase(safeUuid)) {
+                ownerUserId = "11111111-1111-1111-1111-111111111112";
+            } else if ("22222222-2222-2222-2222-222222222222".equalsIgnoreCase(safeUuid)) {
+                ownerUserId = "22222222-2222-2222-2222-222222222222";
+            } else {
+                ownerUserId = UUID.nameUUIDFromBytes((safeUuid + ":owner").getBytes()).toString();
+            }
+            final String upsertOwnerSql = """
+                    INSERT INTO tenant_members (id, tenant_id, user_subject, email, full_name, role, status, spending_allowance, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, 'OWNER', 'ACTIVE', 15000.0000, NOW(), NOW())
+                    ON CONFLICT (tenant_id, user_subject) DO UPDATE SET
+                        email = EXCLUDED.email,
+                        full_name = EXCLUDED.full_name,
+                        updated_at = NOW()
+                    """;
+            jdbcTemplate.update(
+                    upsertOwnerSql,
+                    UUID.fromString(ownerUserId),
+                    tenantId,
+                    ownerUserId,
+                    ownerEmail.trim(),
+                    tenantName + " (Owner)"
+            );
+        }
+    }
+
+    @Override
     public PlatformMetricsDTO calculatePlatformMetrics() {
         enforceSessionContext();
         int totalTenants = Optional.ofNullable(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM tenants", Integer.class)).orElse(0);

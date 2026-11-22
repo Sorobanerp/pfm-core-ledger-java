@@ -99,6 +99,36 @@ public class TenantAdminApplicationService implements TenantAdminUseCase {
     }
 
     @Override
+    @Transactional
+    public TenantSummaryDTO createTenant(UUID tenantId, String tenantName, String ownerEmail, SubscriptionPlan plan) {
+        Objects.requireNonNull(tenantId, "tenantId must not be null");
+        SubscriptionPlan effectivePlan = plan != null ? plan : SubscriptionPlan.FAMILY_PLUS;
+        String effectiveName = (tenantName != null && !tenantName.isBlank()) ? tenantName : "Familia PFM";
+
+        subscriptionRepository.bootstrapTenant(tenantId, effectiveName, ownerEmail, effectivePlan);
+        TenantSubscription subscription = subscriptionRepository.findByTenantId(tenantId)
+                .orElseGet(() -> TenantSubscription.createDefaultTrial(tenantId));
+        subscription.changePlan(effectivePlan);
+        subscription.updateStatus(SubscriptionStatus.ACTIVE);
+        subscriptionRepository.saveSubscription(subscription);
+        subscriptionRepository.updateTenantPlan(tenantId, effectivePlan);
+
+        auditLogRepository.append(AuditLogEntry.of(
+                tenantId,
+                "PLATFORM_ADMIN",
+                "PLATFORM_ADMIN",
+                "TENANT_CREATED",
+                "TENANT",
+                tenantId.toString(),
+                resolveTraceId(),
+                "{\"tenantName\":\"" + effectiveName + "\",\"plan\":\"" + effectivePlan.name() + "\"}"
+        ));
+
+        return subscriptionRepository.findTenantSummary(tenantId)
+                .orElseThrow(() -> new IllegalStateException("Tenant not found after creation: " + tenantId));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public PlatformMetricsDTO getPlatformMetrics(String period) {
         return subscriptionRepository.calculatePlatformMetrics();

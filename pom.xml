@@ -23,6 +23,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <resilience4j.version>2.3.0</resilience4j.version>
         <opentelemetry.version>1.44.1</opentelemetry.version>
+        <grpc.version>1.68.1</grpc.version>
         <testcontainers.version>1.20.4</testcontainers.version>
     </properties>
 
@@ -110,6 +111,28 @@
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
             <version>${opentelemetry.version}</version>
+        </dependency>
+
+        <!-- gRPC Netty Server & Server Reflection (ADR-003 / Local DX) -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-protobuf</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-stub</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-services</artifactId>
+            <version>${grpc.version}</version>
         </dependency>
 
         <!-- Testing & Testcontainers (PostgreSQL 16) -->

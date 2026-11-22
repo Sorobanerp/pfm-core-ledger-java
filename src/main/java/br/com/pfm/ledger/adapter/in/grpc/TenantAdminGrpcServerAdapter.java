@@ -96,4 +96,26 @@ public class TenantAdminGrpcServerAdapter {
         );
         return future.get();
     }
+
+    public record CreateTenantCommand(UUID tenantId, String tenantName, String ownerEmail, String plan) {}
+
+    @PostMapping("/CreateTenant")
+    public TenantSummaryDTO createTenant(@RequestBody CreateTenantCommand command) throws Exception {
+        Objects.requireNonNull(command, "command must not be null");
+        UUID tenantId = command.tenantId() != null ? command.tenantId() : UUID.randomUUID();
+        String tenantName = command.tenantName() != null ? command.tenantName() : "Familia Dantas";
+        String ownerEmail = command.ownerEmail() != null ? command.ownerEmail() : "dantas@pfmpulse.com.br";
+        SubscriptionPlan plan = command.plan() != null && !command.plan().isBlank()
+                ? SubscriptionPlan.valueOf(command.plan().trim().toUpperCase())
+                : SubscriptionPlan.FAMILY_PLUS;
+
+        Future<TenantSummaryDTO> future = virtualExecutor.submit(() ->
+                TenantContextHolder.callAsPlatformAdmin(() ->
+                        TenantContextHolder.callWithTenant(tenantId, () ->
+                                adminUseCase.createTenant(tenantId, tenantName, ownerEmail, plan)
+                        )
+                )
+        );
+        return future.get();
+    }
 }

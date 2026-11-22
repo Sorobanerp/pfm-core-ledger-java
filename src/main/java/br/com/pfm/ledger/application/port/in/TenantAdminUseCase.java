@@ -44,4 +44,8 @@ public interface TenantAdminUseCase {
     TenantSummaryDTO updateSubscriptionStatus(UUID tenantId, SubscriptionStatus newStatus, String reason);
 
     PlatformMetricsDTO getPlatformMetrics(String period);
+
+    default TenantSummaryDTO createTenant(UUID tenantId, String tenantName, String ownerEmail, SubscriptionPlan plan) {
+        return changeTenantPlan(tenantId, plan);
+    }
 }
