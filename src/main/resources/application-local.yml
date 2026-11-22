@@ -1,0 +1,70 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+grpc:
+  server:
+    port: ${GRPC_SERVER_PORT:9090}
+    reflection-service-enabled: ${GRPC_REFLECTION_ENABLED:true}
+
+spring:
+  application:
+    name: pfm-core-ledger-java
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/pfm_core_ledger}
+    username: ${DB_USERNAME:pfm_app_user}
+    password: ${DB_PASSWORD:pfm_app_secret_2026}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+      auto-commit: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    url: ${FLYWAY_URL:${DB_URL:jdbc:postgresql://localhost:5432/pfm_core_ledger}}
+    user: ${FLYWAY_USER:postgres}
+    password: ${FLYWAY_PASSWORD:postgres}
+    baseline-on-migrate: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+pfm:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  aws:
+    endpoint-url: ${AWS_ENDPOINT_URL:http://localhost:4566}
+    region: ${AWS_REGION:us-east-2}
+    kms-master-key-alias: ${KMS_MASTER_KEY_ID:alias/pfm-master-key}
+
+management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:${SERVER_PORT:8082}}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: 0.0
+
+logging:
+  structured:
+    format:
+      console: ecs
+  level:
+    root: INFO
+    br.com.pfm: DEBUG
+    org.springframework.jdbc.core: DEBUG
+
+aws:
+  cloudwatch:
+    enabled: false

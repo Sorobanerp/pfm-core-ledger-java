@@ -27,4 +27,7 @@ public interface TenantSubscriptionRepositoryPort {
     void updateSubscriptionStatus(UUID tenantId, SubscriptionStatus status, String reason);
 
     PlatformMetricsDTO calculatePlatformMetrics();
+
+    default void bootstrapTenant(UUID tenantId, String tenantName, String ownerEmail, SubscriptionPlan plan) {
+    }
 }
