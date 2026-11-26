@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="SERVICE_NAME" source="spring.application.name" defaultValue="pfm-core-ledger-java"/>
+    <springProperty scope="context" name="ENV_NAME" source="spring.profiles.active" defaultValue="local"/>
+
+    <appender name="DATADOG_JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+            <format>ecs</format>
+        </encoder>
+    </appender>
+
+    <logger name="br.com.pfm" level="DEBUG"/>
+    <logger name="org.springframework.jdbc.core" level="DEBUG"/>
+
+    <root level="INFO">
+        <appender-ref ref="DATADOG_JSON_STDOUT"/>
+    </root>
+</configuration>

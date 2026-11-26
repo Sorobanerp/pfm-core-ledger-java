@@ -1,56 +1,87 @@
-# `pfm-core-ledger-java`
+# PFM Core Ledger Service — Java 25 LTS (Hexagonal Core Banking)
 
-> **Core Banking Ledger Service — Java 25 LTS, Spring Boot (Virtual Threads), Hexagonal Architecture & PostgreSQL 16 RLS**
-
-- **Stack Homologada (ADR-001 / ADR-006)**: Java 25 LTS (`ScopedValue`, Virtual Threads), Spring Boot 3.5, Spring Data JDBC/JPA, Flyway, Resilience4j, OpenTelemetry e Testcontainers (PostgreSQL 16).
-- **Banco de Dados (`pfm-shared-infra`)**: `pfm_core_ledger` (porta host `15432` / container `5432`) com **Row-Level Security (RLS)** forçado em 100% das tabelas multitenant sob a role restrita `pfm_app_user` (`NOBYPASSRLS`) e precisão monetária `NUMERIC(19,4)` (RN06).
-
----
-
-## 0. Portas & Configuração 12-Factor App
-
-Em conformidade com a topologia canônica local (evitando colisão com Portainer na porta `8000`):
-
-| Interface | Porta Host Local | Porta Container / K8s | Variável de Ambiente | Endpoint / Probe |
-|---|:---:|:---:|---|---|
-| **HTTP / Actuator** | `18200` | `8080` | `SERVER_PORT` | `http://localhost:18200/actuator/health` |
-| **gRPC Ledger Engine** | `18210` | `9090` | `GRPC_SERVER_PORT` | `localhost:18210` |
-| **PostgreSQL RLS** | `15432` | `5432` | `DB_URL` | `jdbc:postgresql://localhost:15432/pfm_core_ledger` |
-| **Kafka Backbone** | `19092` | `9092` | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:19092` |
+[![Gitflow](https://img.shields.io/badge/Gitflow-develop%20%7C%20main-indigo)](CONTRIBUTING.md)
+[![SemVer](https://img.shields.io/badge/SemVer-2.0.0-blue)](CHANGELOG.md)
+[![Docs](https://img.shields.io/badge/PFM%20Docs-V3.0-8CBA51)](https://sorobanerp.github.io/pfm-docs/)
 
 ---
 
-## 1. Estrutura Hexagonal (Ports & Adapters)
+## 1. Visão Geral & Papel na Arquitetura
 
-```text
-src/main/java/br/com/pfm/ledger/
-├── domain/                         # Domínio puro (Zero dependências de Spring/JPA/Frameworks)
-│   ├── Money.java                  # BigDecimal escala 4 + RoundingMode.HALF_EVEN + split de parcelas (RN06)
-│   ├── LedgerEntry.java            # Segregação Competência vs Caixa (RN01) & Estorno Append-Only (RN03)
-│   ├── CreditCard.java             # Limite Total/Disponível segregado do Orçamento (RN02)
-│   ├── InstallmentSchedule.java    # Cronograma de parcelas por competência (RN01/RN06)
-│   └── FinancialContract.java      # Contratos SAC, Price e Consórcio
-├── application/
-│   ├── port/in/                    # Use Cases de entrada (RecordLedgerEntryUseCase)
-│   ├── port/out/                   # Portas de saída (Repositório RLS, Transactional Outbox, KMS)
-│   └── service/                    # Orquestração transacional ACID + Outbox
-├── adapter/
-│   ├── in/                         # Adaptadores Inbound (gRPC/Kafka com Resilience4j)
-│   └── out/                        # Adaptadores Outbound (PostgreSQL RLS + Outbox + AES-256-GCM KMS)
-└── infrastructure/
-    ├── TenantContextHolder.java    # ScopedValue nativo do Java 25 para isolamento em Virtual Threads
-    ├── RlsTenantJdbcInterceptor.java # Interceptor JDBC que executa SET LOCAL app.current_tenant_id = '<uuid>'
-    └── RlsDataSourceConfig.java    # Configuração do DataSource envelopado com RLS
+Núcleo contábil ACID em **Java 25 LTS + Spring Boot 3.4 (Virtual Threads)**: partidas dobradas, Regime de Competência vs. Caixa (**RN01**), Limite vs. Orçamento (**RN02**), Estornos (**RN03**), Conciliação (**RN04**), RLS + KMS (**RN05/ADR-006**), Precisão `NUMERIC(19,4)` (**RN06**), SaaS Admin (`US-12`), Perfil/Família (`US-13`) e `audit_log` append-only (**ADR-010**).
+
+- **Repositório:** `Sorobanerp/pfm-core-ledger-java`
+- **Vínculo com `pfm-docs`:** `ADR-001, ADR-003, ADR-005, ADR-006, ADR-010 | US-01..US-05, US-10, US-12, US-13`
+
+```mermaid
+flowchart LR
+    BFF["pfm-ingestion-bff-go"] -->|gRPC / Kafka| LEDGER["pfm-core-ledger-java (Java 25)"]
+    LEDGER -->|ACID + FORCE RLS + audit_log| PG[("PostgreSQL 16")]
+    LEDGER -->|Transactional Outbox| KAFKA[["Upstash Kafka"]]
+    LEDGER <-->|Idempotency 72h| REDIS[("Upstash Redis")]
 ```
 
 ---
 
-## 2. Execução de Testes & Build
+## 2. Pré-requisitos & Variáveis de Ambiente
+
+### Pré-requisitos
+- Java 25 LTS (Temurin) & Maven Wrapper (`./mvnw`)
+- Docker (para Testcontainers PostgreSQL 16 RLS / Kafka / Redis)
+
+### Variáveis de Ambiente (Sem Segredos Hardcoded)
+| Variável | Padrão Local | Descrição |
+| :--- | :---: | :--- |
+| `SERVER_PORT` | `18200` | Porta HTTP (Actuator Health & REST) |
+| `GRPC_SERVER_PORT` | `18210` | Porta gRPC do Core Ledger |
+| `DB_URL` | `jdbc:postgresql://localhost:15432/pfm_core_ledger` | JDBC PostgreSQL 16 |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:19092` | Brokers Kafka |
+| `REDIS_ADDR` | `localhost:16379` | Redis / Valkey (Idempotência) |
+
+> **Segurança (Zero-Trust):** Nunca commite tokens, senhas, chaves AWS ou strings de conexão com credenciais reais. Utilize `.env` local (ignorado no `.gitignore`) ou AWS Secrets Manager / GitHub OIDC.
+
+---
+
+## 3. Como Executar Localmente
 
 ```bash
-# Executar a suíte de testes de integração com Testcontainers (PostgreSQL 16 RLS)
-./mvnw test
-
-# Construir imagem multi-stage Distroless
-docker build -t sorobanerp/pfm-core-ledger-java:latest .
+# Certifique-se que local-cloud está ativo (pfm-shared-infra)
+./mvnw spring-boot:run
+# Healthcheck: curl -f http://localhost:18200/actuator/health
 ```
+
+---
+
+## 4. Como Testar e Validar
+
+```bash
+# Testes unitários, ArchUnit (Hexagonal) e Testcontainers (PostgreSQL 16 com FORCE RLS)
+./mvnw clean verify
+# Cobertura JaCoCo >= 95% validada no SonarCloud
+```
+
+---
+
+## 5. Como Provisionar / Validar na Nuvem
+
+1. Fluxo Gitflow: `feat/*` $\rightarrow$ `develop` $\rightarrow$ `release/vX.Y.Z` $\rightarrow$ `main` (GMUD).
+2. O pipeline `cd-aws-deploy.yml` constrói imagem OCI Distroless `linux/arm64` e atualiza o serviço ECS via `pfm-core-ledger-infra`.
+
+Consulte [CONTRIBUTING.md](CONTRIBUTING.md) para regras de Conventional Commits e [CHANGELOG.md](CHANGELOG.md) para histórico de versões.
+
+---
+
+## Execução e Debug Local (CLI, VS Code e IntelliJ IDEA)
+
+1. **Bootstrap Completo do Ambiente Local (Zero Segredos no Git):**
+   Na raiz do workspace (`/home/dantas/workspace/pfm-platform/`), execute:
+   ```bash
+   ./init-local-development.sh
+   ```
+   O script gera automaticamente o arquivo `.env.local` (ignorado pelo `.gitignore`, tendo `.env.example` como template seguro), sobe o `pfm-shared-infra/docker-compose.local.yml` (PostgreSQL 16 `:5432`, Kafka/Redpanda `:9092`, Console Kafka `:8081`, Redis/Valkey `:6379`, LocalStack S3+KMS `:4566`), cria os tópicos Kafka e provisiona a chave KMS `alias/pfm-master-key`.
+
+2. **Execução com Perfil `local` & Debug na IDE:**
+   - **`pfm-core-ledger-java` (IntelliJ IDEA / Java 25 LTS):** Abra o projeto no IntelliJ IDEA e selecione a Run Configuration compartilhada **`CoreLedgerApplication (local)`** (`.run/CoreLedgerApplication (local).run.xml`, `SPRING_PROFILES_ACTIVE=local`, HTTP `:8082`, gRPC `:9090` com Server Reflection habilitado) ou rode `SPRING_PROFILES_ACTIVE=local ./mvnw spring-boot:run`.
+   - **`pfm-ingestion-bff-go` (VS Code / Go):** Pressione **`F5`** (`Run PFM Ingestion BFF (APP_ENV=local :8080)` em `.vscode/launch.json`) e acesse o **Swagger UI (OpenAPI 3.1)** em `http://localhost:8080/swagger/index.html` ou use `requests-local.http`.
+   - **`pfm-forecast-engine-go` (VS Code / Go):** Pressione **`F5`** (`Run PFM Forecast Engine (APP_ENV=local :9091 gRPC)` em `.vscode/launch.json`) e teste via `grpcurl -plaintext localhost:9091 list`.
+   - **`pfm-ai-worker-python` (VS Code / Python 3.12):** Pressione **`F5`** (`Run PFM AI Worker Python (APP_ENV=local)` em `.vscode/launch.json`), operando em modo determinístico local quando `GEMINI_API_KEY` estiver vazia.
