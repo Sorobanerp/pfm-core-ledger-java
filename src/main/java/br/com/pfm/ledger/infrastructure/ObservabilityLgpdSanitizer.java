@@ -16,10 +16,14 @@ public final class ObservabilityLgpdSanitizer {
 
     private static final Pattern CPF_PATTERN =
             Pattern.compile("\\b\\d{3}\\.?\\d{3}\\.?\\d{3}-\\d{2}\\b|\\b\\d{11}\\b");
+    private static final Pattern CPF_KV_PATTERN =
+            Pattern.compile("(?i)(\"?cpf\"?\\s*[:=]\\s*\"?)([^\"\\s,}]+)(\"?)");
     private static final Pattern PAN_PATTERN =
             Pattern.compile("\\b(?:\\d[ -]*?){13,16}\\b");
-    private static final Pattern PASSWORD_KV_PATTERN =
-            Pattern.compile("(?i)(\"?(?:pdf_?password|password)\"?\\s*[:=]\\s*\"?)([^\"\\s,}]+)(\"?)");
+    private static final Pattern CARD_KV_PATTERN =
+            Pattern.compile("(?i)(\"?(?:card_?number|pan)\"?\\s*[:=]\\s*\"?)([^\"\\s,}]+)(\"?)");
+    private static final Pattern SECRET_KV_PATTERN =
+            Pattern.compile("(?i)(\"?(?:pdf_?password|password|token|access_?token|refresh_?token|secret|api_?key|authorization)\"?\\s*[:=]\\s*\"?)([^\"\\s,}]+)(\"?)");
     private static final Pattern W3C_TRACEPARENT_PATTERN =
             Pattern.compile("^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$");
 
@@ -55,7 +59,9 @@ public final class ObservabilityLgpdSanitizer {
         if (raw == null || raw.isEmpty()) {
             return "";
         }
-        String masked = PASSWORD_KV_PATTERN.matcher(raw).replaceAll("$1[REDACTED]$3");
+        String masked = SECRET_KV_PATTERN.matcher(raw).replaceAll("$1[REDACTED]$3");
+        masked = CARD_KV_PATTERN.matcher(masked).replaceAll("$1[PAN_MASKED]$3");
+        masked = CPF_KV_PATTERN.matcher(masked).replaceAll("$1[CPF_MASKED]$3");
         masked = PAN_PATTERN.matcher(masked).replaceAll("[PAN_MASKED]");
         masked = CPF_PATTERN.matcher(masked).replaceAll("[CPF_MASKED]");
         return masked;

@@ -4,7 +4,7 @@
     <springProperty scope="context" name="ENV_NAME" source="spring.profiles.active" defaultValue="local"/>
 
     <appender name="DATADOG_JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+        <encoder class="br.com.pfm.ledger.infrastructure.LgpdMaskingStructuredLogEncoder">
             <format>ecs</format>
         </encoder>
     </appender>
