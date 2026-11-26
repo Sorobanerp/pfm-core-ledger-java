@@ -42,12 +42,8 @@ public class PostgresRlsLedgerRepositoryAdapter implements LedgerEntryRepository
 
     private void enforceRlsTenantSession() {
         Optional<UUID> tenantIdOpt = TenantContextHolder.getTenantId();
-        if (tenantIdOpt.isPresent()) {
-            String safeUuid = UUID.fromString(tenantIdOpt.get().toString()).toString();
-            jdbcTemplate.execute("SET LOCAL app.current_tenant_id = '" + safeUuid + "'");
-        } else {
-            jdbcTemplate.execute("SET LOCAL app.current_tenant_id = ''");
-        }
+        String safeUuid = tenantIdOpt.map(id -> UUID.fromString(id.toString()).toString()).orElse("");
+        jdbcTemplate.queryForObject("SELECT set_config('app.current_tenant_id', ?, true)", String.class, safeUuid);
     }
 
     @Override

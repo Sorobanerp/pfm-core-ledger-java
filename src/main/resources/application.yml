@@ -74,9 +74,17 @@ management:
         include: health,info,metrics,prometheus
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${DD_TRACE_SAMPLE_RATE:1.0}
     propagation:
       type: W3C
   otlp:
     tracing:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:https://otel-collector.pfm.internal:4318}/v1/traces
+
+datadog:
+  service: ${DD_SERVICE:pfm-core-ledger-java}
+  env: ${DD_ENV:local}
+  version: ${DD_VERSION:0.1.0}
+  logs-injection: ${DD_LOGS_INJECTION:true}
+  site: ${DD_SITE:us3.datadoghq.com}
+  cloudwatch-logs-enabled: ${CLOUDWATCH_LOGS_ENABLED:false}
