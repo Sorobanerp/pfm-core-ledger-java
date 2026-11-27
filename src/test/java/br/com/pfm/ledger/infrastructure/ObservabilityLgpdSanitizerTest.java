@@ -42,11 +42,14 @@ class ObservabilityLgpdSanitizerTest {
         assertEquals("", ObservabilityLgpdSanitizer.maskSensitivePii(null));
         assertEquals("", ObservabilityLgpdSanitizer.maskSensitivePii(""));
 
-        String raw = "Cliente CPF 123.456.789-01 cartao 4532 1122 3344 5566 pdfPassword=segredo123";
+        String raw = "Cliente CPF 123.456.789-01 cartao 4532 1122 3344 5566 pdfPassword=segredo123 token=jwt123 secret=mysecret card_number=9999888877776666";
         String masked = ObservabilityLgpdSanitizer.maskSensitivePii(raw);
         assertFalse(masked.contains("123.456.789-01"));
         assertFalse(masked.contains("4532 1122 3344 5566"));
         assertFalse(masked.contains("segredo123"));
+        assertFalse(masked.contains("jwt123"));
+        assertFalse(masked.contains("mysecret"));
+        assertFalse(masked.contains("9999888877776666"));
         assertTrue(masked.contains("[CPF_MASKED]"));
         assertTrue(masked.contains("[PAN_MASKED]"));
         assertTrue(masked.contains("[REDACTED]"));

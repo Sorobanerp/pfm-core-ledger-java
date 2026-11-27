@@ -32,17 +32,10 @@ public class PostgresRlsUserProfileAdapter implements UserProfileRepositoryPort 
 
     private void enforceSessionContext() {
         Optional<UUID> tenantIdOpt = TenantContextHolder.getTenantId();
-        if (tenantIdOpt.isPresent()) {
-            String safeUuid = UUID.fromString(tenantIdOpt.get().toString()).toString();
-            jdbcTemplate.execute("SET LOCAL app.current_tenant_id = '" + safeUuid + "'");
-        } else {
-            jdbcTemplate.execute("SET LOCAL app.current_tenant_id = ''");
-        }
-        if (TenantContextHolder.isPlatformAdmin()) {
-            jdbcTemplate.execute("SET LOCAL app.is_platform_admin = 'true'");
-        } else {
-            jdbcTemplate.execute("SET LOCAL app.is_platform_admin = 'false'");
-        }
+        String safeUuid = tenantIdOpt.map(id -> UUID.fromString(id.toString()).toString()).orElse("");
+        String isAdmin = TenantContextHolder.isPlatformAdmin() ? "true" : "false";
+        jdbcTemplate.queryForObject("SELECT set_config('app.current_tenant_id', ?, true)", String.class, safeUuid);
+        jdbcTemplate.queryForObject("SELECT set_config('app.is_platform_admin', ?, true)", String.class, isAdmin);
     }
 
     @Override
